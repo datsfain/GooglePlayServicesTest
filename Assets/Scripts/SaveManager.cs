@@ -97,22 +97,27 @@ public class SaveManager : MonoBehaviour
             case SavedGameRequestStatus.Success: SetStatusText("Successfully Loaded Data", Color.green); break;
             default: SetStatusText($"Failed To Load Data. Status: {status}", Color.red); return;
         }
-        string data = Encoding.UTF8.GetString(dataBytes);
-        playerData = new PlayerData(data);
+        if(dataBytes == null || dataBytes.Length == 0)
+        {
+            playerData = new PlayerData("0,0");
+        }
+        else
+        {
+            string data = Encoding.UTF8.GetString(dataBytes);
+            playerData = new PlayerData(data);
+        }
         SetTexts();
     }
 
     private void AuthToGoogle()
     {
         SetStatusText("Started To Auth...", Color.yellow);
-        //Social.Active.localUser.Authenticate(OnAuth);
-        PlayGamesPlatform.Instance.Authenticate(SignInInteractivity.CanPromptAlways, OnAuth);
+        PlayGamesPlatform.Instance.Authenticate(OnAuth,false);
     }
-                        // bool success / bool success , string msg if 
-    public void OnAuth(SignInStatus status)
+    public void OnAuth(bool success)
     {
-        if (status == SignInStatus.Success) SetStatusText($"Successfully Authenticated! ", Color.green);
-        else SetStatusText($"Failed To Authenticate! {status}", Color.red);
+        if (success) SetStatusText($"Successfully Authenticated! ", Color.green);
+        else SetStatusText($"Failed To Authenticate!", Color.red);
     }
 
     // Invoked from outside
@@ -120,7 +125,7 @@ public class SaveManager : MonoBehaviour
     public void SaveData() => OpenSaveGame(SaveGameOpenReason.Save);
     public void LoadData() => OpenSaveGame(SaveGameOpenReason.Load);
     public void AddGold() => SetGoldText((++playerData.Gold).ToString());
-    public void AddHearts() => SetGoldText((++playerData.Hearts).ToString());
+    public void AddHearts() => SetHeartText((++playerData.Hearts).ToString());
 
     // UI
     private void SetTexts()
@@ -137,3 +142,8 @@ public class SaveManager : MonoBehaviour
         statusText.color = color;
     }
 }
+
+// Helpful YouTube Videos
+// https://www.youtube.com/watch?v=0AtXxdvdKcQ&t=1720s 
+// https://www.youtube.com/watch?v=joY-RQguwI4
+// https://www.youtube.com/watch?v=zlCwDjFvDkE&t=709s
