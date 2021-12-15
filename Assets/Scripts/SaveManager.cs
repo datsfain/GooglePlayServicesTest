@@ -1,6 +1,7 @@
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
 using GooglePlayGames.BasicApi.SavedGame;
+using Realms;
 using System;
 using System.Text;
 using TMPro;
@@ -8,22 +9,32 @@ using UnityEngine;
 
 public class SaveManager : MonoBehaviour
 {
+    // UI
     public TMP_Text goldText;
     public TMP_Text heartText;
     public TMP_Text statusText;
-    public PlayerData playerData;
 
-    public enum SaveGameOpenReason { Load, Save }
+    // PlayGames
+    private enum SaveGameOpenReason { Load, Save }
     private SaveGameOpenReason saveGameOpenReason = SaveGameOpenReason.Load;
-
     private PlayGamesPlatform _platform;
     private bool Authenticated => _platform.localUser.authenticated;
+
+
+    // Realm
+    private Realm _realm;
+    public Realm realm => _realm ??= Realm.GetInstance();
+
+    public PlayerData playerData;
+
 
     private void Start()
     {
         InitializePlatform();
         SetStatusText("Not Authenticated", Color.yellow);
     }
+    private void OnDestroy() => _realm?.Dispose();
+
     public void InitializePlatform()
     {
         if (_platform == null)
@@ -42,18 +53,28 @@ public class SaveManager : MonoBehaviour
 
 
     // API Calls + Callbacks
-    public void OpenSaveGame(SaveGameOpenReason reason)
+    private void OpenSaveGame(SaveGameOpenReason reason)
     {
         if (Authenticated)
         {
             saveGameOpenReason = reason;
-            _platform.SavedGame.OpenWithAutomaticConflictResolution
-                ("SaveGame", DataSource.ReadCacheOrNetwork,
-                ConflictResolutionStrategy.UseLongestPlaytime, OnSaveGameOpened);
+            _platform.SavedGame.OpenWithAutomaticConflictResolution(
+                "SaveGame",
+                DataSource.ReadCacheOrNetwork,
+                ConflictResolutionStrategy.UseLongestPlaytime,
+                OnSaveGameOpened
+                );
         }
         else
         {
-            SetStatusText("Not Authenticated!", Color.red);
+            SetStatusText("Not Authenticated, Loading Local Save Data", Color.red);
+
+            playerData = realm.Find<PlayerData>(PlayerData.DefaultId);
+            if (playerData == null)
+            {
+                realm.Write(() => playerData = realm.Add(new PlayerData(PlayerData.DefaultId)));
+            }
+            SetTexts();
         }
     }
     private void OnSaveGameOpened(SavedGameRequestStatus status, ISavedGameMetadata metaData)
@@ -61,6 +82,7 @@ public class SaveManager : MonoBehaviour
         if (status == SavedGameRequestStatus.Success)
         {
             SetStatusText("Save Game Opened Successfully", Color.green);
+
             switch (saveGameOpenReason)
             {
                 case SaveGameOpenReason.Save: SavePlayerData(metaData); break;
@@ -101,18 +123,27 @@ public class SaveManager : MonoBehaviour
             case SavedGameRequestStatus.Success: SetStatusText("Successfully Loaded Data", Color.green); break;
             default: SetStatusText($"Failed To Load Data. Status: {status}", Color.red); return;
         }
-        if (dataBytes == null || dataBytes.Length == 0)
+
+        string userId = _platform.localUser.id;
+        playerData = realm.Find<PlayerData>(userId);
+
+        if (playerData == null)
         {
-            playerData = new PlayerData();
+            PlayerData data;
+            if (dataBytes == null || dataBytes.Length == 0)
+            {
+                data = new PlayerData(userId);
+            }
+            else
+            {
+                string dataString = Encoding.UTF8.GetString(dataBytes);
+                data = new PlayerData(userId, dataString);
+            }
+            realm.Write(() => playerData = realm.Add(data));
         }
-        else
-        {
-            string data = Encoding.UTF8.GetString(dataBytes);
-            playerData = new PlayerData(data);
-        }
+
         SetTexts();
     }
-
     private void AuthenticateToPlayGames()
     {
         SetStatusText("Authenticating...", Color.yellow);
@@ -136,8 +167,16 @@ public class SaveManager : MonoBehaviour
     public void SignOut() => SignOutFromPlayGames();
     public void SaveData() => OpenSaveGame(SaveGameOpenReason.Save);
     public void LoadData() => OpenSaveGame(SaveGameOpenReason.Load);
-    public void AddGold() => SetGoldText((++playerData.Gold).ToString());
-    public void AddHearts() => SetHeartText((++playerData.Hearts).ToString());
+    public void AddGold()
+    {
+        realm.Write(() => playerData.Gold++);
+        SetGoldText(playerData.Gold.ToString());
+    }
+    public void AddHearts()
+    {
+        realm.Write(() => playerData.Hearts++);
+        SetHeartText(playerData.Hearts.ToString());
+    }
 
     // UI
     private void SetTexts()
@@ -156,6 +195,6 @@ public class SaveManager : MonoBehaviour
 }
 
 // Helpful YouTube Videos
-// https://www.youtube.com/watch?v=0AtXxdvdKcQ&t=1720s 
+// https://www.youtube.com/watch?v=0AtXxdvdKcQ&t=1720s
 // https://www.youtube.com/watch?v=joY-RQguwI4
 // https://www.youtube.com/watch?v=zlCwDjFvDkE&t=709s

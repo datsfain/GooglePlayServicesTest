@@ -1,22 +1,34 @@
+using Realms;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerData
+public class PlayerData : RealmObject
 {
+    [Required]
+    [PrimaryKey]
+    public string Id { get; set; }
     public int Gold { get; set; }
     public int Hearts { get; set; }
 
-    public PlayerData()
+    public PlayerData() { }
+    public PlayerData(string Id)
     {
+        this.Id = Id;
         Gold = 0;
         Hearts = 0;
     }
-    public PlayerData(string data)
+    public PlayerData(string Id, string data)
     {
-        var parts = data.Split(',');
-        Gold = int.Parse(parts[0]);
-        Hearts = int.Parse(parts[1]);
+        this.Id = Id;
+        var fields = data.Split(',');
+
+        this.Gold = int.Parse(fields[0]);
+        this.Hearts = int.Parse(fields[1]);
     }
     public override string ToString() => $"{Gold},{Hearts}";
+
+
+    public static readonly string DefaultId = "default_id";
+
 }
