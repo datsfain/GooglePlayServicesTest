@@ -17,9 +17,13 @@ public class SaveManager : MonoBehaviour
     private SaveGameOpenReason saveGameOpenReason = SaveGameOpenReason.Load;
 
     private PlayGamesPlatform _platform;
-    private bool Authenticated => Social.localUser.authenticated;
+    private bool Authenticated => _platform.localUser.authenticated;
 
-    private void Start() => InitializePlatform();
+    private void Start()
+    {
+        InitializePlatform();
+        SetStatusText("Not Authenticated", Color.yellow);
+    }
     public void InitializePlatform()
     {
         if (_platform == null)
@@ -97,9 +101,9 @@ public class SaveManager : MonoBehaviour
             case SavedGameRequestStatus.Success: SetStatusText("Successfully Loaded Data", Color.green); break;
             default: SetStatusText($"Failed To Load Data. Status: {status}", Color.red); return;
         }
-        if(dataBytes == null || dataBytes.Length == 0)
+        if (dataBytes == null || dataBytes.Length == 0)
         {
-            playerData = new PlayerData("0,0");
+            playerData = new PlayerData();
         }
         else
         {
@@ -109,19 +113,27 @@ public class SaveManager : MonoBehaviour
         SetTexts();
     }
 
-    private void AuthToGoogle()
+    private void AuthenticateToPlayGames()
     {
-        SetStatusText("Started To Auth...", Color.yellow);
-        PlayGamesPlatform.Instance.Authenticate(OnAuth,false);
+        SetStatusText("Authenticating...", Color.yellow);
+        _platform.Authenticate(SignInInteractivity.CanPromptAlways, OnAuthenticationComplete);
     }
-    public void OnAuth(bool success)
+    private void OnAuthenticationComplete(SignInStatus status)
     {
-        if (success) SetStatusText($"Successfully Authenticated! ", Color.green);
-        else SetStatusText($"Failed To Authenticate!", Color.red);
+        if (status == SignInStatus.Success)
+            SetStatusText($"Successfully Authenticated! ", Color.green);
+        else
+            SetStatusText($"Failed To Authenticate! {status}", Color.red);
+    }
+    private void SignOutFromPlayGames()
+    {
+        _platform.SignOut();
+        SetStatusText("Signed Out", Color.yellow);
     }
 
     // Invoked from outside
-    public void Authenticate() => AuthToGoogle();
+    public void SignIn() => AuthenticateToPlayGames();
+    public void SignOut() => SignOutFromPlayGames();
     public void SaveData() => OpenSaveGame(SaveGameOpenReason.Save);
     public void LoadData() => OpenSaveGame(SaveGameOpenReason.Load);
     public void AddGold() => SetGoldText((++playerData.Gold).ToString());

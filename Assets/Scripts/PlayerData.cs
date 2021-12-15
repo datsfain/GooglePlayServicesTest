@@ -7,6 +7,11 @@ public class PlayerData
     public int Gold { get; set; }
     public int Hearts { get; set; }
 
+    public PlayerData()
+    {
+        Gold = 0;
+        Hearts = 0;
+    }
     public PlayerData(string data)
     {
         var parts = data.Split(',');
